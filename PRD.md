@@ -127,7 +127,17 @@ A lightweight, local-first password manager designed for simplicity. Unlike feat
 | Storage | SQLite | Local only, not exposed externally |
 | Encryption | libsodium / Web Crypto API | Well-audited |
 
-**Recommendation:** Option A (Tauri) for the best balance of usability and security for personal desktop use.
+### Option D: Desktop App with Go Backend
+| Layer | Choice | Reason |
+|-------|--------|--------|
+| Framework | Wails v2 (Go + WebView) | Native desktop app with Go backend, similar to Tauri but Go-based |
+| Frontend | React + TypeScript | Same as Option A |
+| Styling | Tailwind CSS | Same as Option A |
+| Storage | SQLite (via `modernc.org/sqlite`) | Local file, no CGo dependency |
+| Encryption | AES-256-GCM via Go `crypto/aes` + `crypto/cipher` | Standard library, audited |
+| Key derivation | Argon2id via `golang.org/x/crypto/argon2` | Same security profile as Option A |
+
+**Recommendation:** Option A (Tauri) for the best balance of usability and security. **Option D (Wails + Go) is recommended if Go is your preferred backend language** — it provides the same security guarantees with a more familiar development experience.
 
 ---
 
