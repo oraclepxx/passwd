@@ -22,5 +22,14 @@ dist/
 target/
 src-tauri/target/
 
+# Wails build output
+build/bin/
+frontend/dist/
+frontend/package.json.md5
+
+# Go binary
+passwd
+passwd.exe
+
 # Logs
 *.log

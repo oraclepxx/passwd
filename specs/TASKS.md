@@ -6,51 +6,51 @@ Check off each task as it is completed. Do not skip ahead — complete and verif
 
 ## Phase 1 — Project Scaffold
 
-- [ ] 1-1. Run `wails init -n passwd -t react-ts` to bootstrap the project
-- [ ] 1-2. Reorganize directory structure to match `TECH_DESIGN_v2.md` §10 (move Go code into `backend/`)
-- [ ] 1-3. Update `wails.json` to point `backend` to the new path
-- [ ] 1-4. Add Go dependencies: `modernc.org/sqlite`, `golang.org/x/crypto/argon2`, `github.com/google/uuid`, `golang.org/x/sys`
-- [ ] 1-5. Add frontend dependency: `tailwindcss @tailwindcss/vite`
-- [ ] 1-6. Configure Tailwind in `vite.config.ts` and add `@tailwind` directives to global CSS
-- [ ] 1-7. Set Wails CSP in `wails.json` to block all external origins (`"default-src 'self'"`)
-- [ ] 1-8. Create all empty Go files with package declarations: `backend/vault/session.go`, `crypto.go`, `db.go`, `records.go`, `generator.go`, `backend/models/record.go`, `errors.go`
+- [x] 1-1. Run `wails init -n passwd -t react-ts` to bootstrap the project
+- [x] 1-2. Reorganize directory structure to match `TECH_DESIGN_v2.md` §10 (move Go code into `backend/`)
+- [x] 1-3. Update `wails.json` to point `backend` to the new path
+- [x] 1-4. Add Go dependencies: `modernc.org/sqlite`, `golang.org/x/crypto/argon2`, `github.com/google/uuid`, `golang.org/x/sys`
+- [x] 1-5. Add frontend dependency: `tailwindcss @tailwindcss/vite`
+- [x] 1-6. Configure Tailwind in `vite.config.ts` and add `@tailwind` directives to global CSS
+- [x] 1-7. Set Wails CSP in `wails.json` to block all external origins (`"default-src 'self'"`)
+- [x] 1-8. Create all empty Go files with package declarations: `backend/vault/session.go`, `crypto.go`, `db.go`, `records.go`, `generator.go`, `backend/models/record.go`, `errors.go`
 
 **Verify:**
-- [ ] 1-9. `wails dev` starts and opens a blank window with no errors
-- [ ] 1-10. `go build ./...` compiles cleanly
-- [ ] 1-11. `cd frontend && npm run build` succeeds
+- [x] 1-9. `wails dev` starts and opens a blank window with no errors
+- [x] 1-10. `go build ./...` compiles cleanly
+- [x] 1-11. `cd frontend && npm run build` succeeds
 
 ---
 
 ## Phase 2 — Data Layer (Go)
 
-- [ ] 2-1. Implement `backend/vault/db.go`: open/create SQLite DB at `os.UserConfigDir()` path
-- [ ] 2-2. Run schema on first open with `CREATE TABLE IF NOT EXISTS` for `vault_meta`, `records`, `password_history`
-- [ ] 2-3. Create all three indexes: `idx_records_deleted_at`, `idx_records_search`, `idx_history_record`
-- [ ] 2-4. Export `DB` struct with `*sql.DB` field and `Close() error` method
-- [ ] 2-5. Implement `backend/models/record.go` with exact structs from `TECH_DESIGN_v2.md` §4.3: `RecordPlaintext`, `RecordSummary`, `RecordDetail`, `RecordInput`, `GeneratorOptions`, `PasswordHistory`
-- [ ] 2-6. Implement `backend/models/errors.go` with sentinel errors: `ErrVaultLocked`, `ErrVaultAlreadyExists`, `ErrVaultNotFound`, `ErrRecordNotFound`, `ErrWrongPassword`
+- [x] 2-1. Implement `backend/vault/db.go`: open/create SQLite DB at `os.UserConfigDir()` path
+- [x] 2-2. Run schema on first open with `CREATE TABLE IF NOT EXISTS` for `vault_meta`, `records`, `password_history`
+- [x] 2-3. Create all three indexes: `idx_records_deleted_at`, `idx_records_search`, `idx_history_record`
+- [x] 2-4. Export `DB` struct with `*sql.DB` field and `Close() error` method
+- [x] 2-5. Implement `backend/models/record.go` with exact structs from `TECH_DESIGN_v2.md` §4.3: `RecordPlaintext`, `RecordSummary`, `RecordDetail`, `RecordInput`, `GeneratorOptions`, `PasswordHistory`
+- [x] 2-6. Implement `backend/models/errors.go` with sentinel errors: `ErrVaultLocked`, `ErrVaultAlreadyExists`, `ErrVaultNotFound`, `ErrRecordNotFound`, `ErrWrongPassword`
 
 **Verify:**
-- [ ] 2-7. Go test: call `db.Open()`, query `sqlite_master`, assert all 3 tables exist
-- [ ] 2-8. `go test ./backend/vault/...` passes
+- [x] 2-7. Go test: call `db.Open()`, query `sqlite_master`, assert all 3 tables exist
+- [x] 2-8. `go test ./backend/vault/...` passes
 
 ---
 
 ## Phase 3 — Crypto Layer (Go)
 
-- [ ] 3-1. Implement `DeriveKey(password []byte, salt []byte) ([32]byte, error)` in `crypto.go` — Argon2id `m=65536, t=3, p=4`
-- [ ] 3-2. Implement `Encrypt(key [32]byte, plaintext []byte) (ciphertext []byte, nonce []byte, err error)` — AES-256-GCM, fresh nonce per call via `crypto/rand`
-- [ ] 3-3. Implement `Decrypt(key [32]byte, ciphertext []byte, nonce []byte) ([]byte, error)` — AES-256-GCM verify + decrypt
-- [ ] 3-4. Implement `VaultSession` struct in `session.go` with `key [32]byte`, `unlocked bool`, `sync.Mutex`
-- [ ] 3-5. Implement `Lock()` — zeros key with `clear(s.key[:])`, sets `unlocked = false`
-- [ ] 3-6. Implement `IsUnlocked() bool` and `Key() ([32]byte, error)` on `VaultSession`
+- [x] 3-1. Implement `DeriveKey(password []byte, salt []byte) ([32]byte, error)` in `crypto.go` — Argon2id `m=65536, t=3, p=4`
+- [x] 3-2. Implement `Encrypt(key [32]byte, plaintext []byte) (ciphertext []byte, nonce []byte, err error)` — AES-256-GCM, fresh nonce per call via `crypto/rand`
+- [x] 3-3. Implement `Decrypt(key [32]byte, ciphertext []byte, nonce []byte) ([]byte, error)` — AES-256-GCM verify + decrypt
+- [x] 3-4. Implement `VaultSession` struct in `session.go` with `key [32]byte`, `unlocked bool`, `sync.Mutex`
+- [x] 3-5. Implement `Lock()` — zeros key with `clear(s.key[:])`, sets `unlocked = false`
+- [x] 3-6. Implement `IsUnlocked() bool` and `Key() ([32]byte, error)` on `VaultSession`
 
 **Verify:**
-- [ ] 3-7. Unit test: encrypt then decrypt known plaintext — assert round-trip equality
-- [ ] 3-8. Unit test: tamper with ciphertext — assert `Decrypt` returns error
-- [ ] 3-9. Unit test: call `Lock()` — assert `key == [32]byte{}`
-- [ ] 3-10. `go test ./backend/vault/...` passes
+- [x] 3-7. Unit test: encrypt then decrypt known plaintext — assert round-trip equality
+- [x] 3-8. Unit test: tamper with ciphertext — assert `Decrypt` returns error
+- [x] 3-9. Unit test: call `Lock()` — assert `key == [32]byte{}`
+- [x] 3-10. `go test ./backend/vault/...` passes
 
 ---
 

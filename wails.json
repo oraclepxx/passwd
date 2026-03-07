@@ -1,0 +1,19 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "passwd",
+  "outputfilename": "passwd",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "golfman",
+    "email": "oraclepxx@gmail.com"
+  },
+  "info": {
+    "productName": "passwd"
+  },
+  "assetdir": "frontend/dist",
+  "reloaddirs": "backend",
+  "CSP": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+}
