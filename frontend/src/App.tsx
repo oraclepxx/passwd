@@ -1,8 +1,62 @@
+import { useState } from 'react'
+import { useVault } from './hooks/useVault'
+import { LockView } from './views/LockView'
+import { ListView } from './views/ListView'
+import { DetailView } from './views/DetailView'
+import { FormView } from './views/FormView'
+import { TrashView } from './views/TrashView'
+
+type View =
+  | { name: 'list' }
+  | { name: 'trash' }
+  | { name: 'detail'; id: string }
+  | { name: 'form'; editId?: string }
+
 function App() {
+  const { isUnlocked, createVault, unlock, lock } = useVault()
+  const [view, setView] = useState<View>({ name: 'list' })
+
+  if (!isUnlocked) {
+    return (
+      <LockView
+        onUnlocked={() => setView({ name: 'list' })}
+        createVault={createVault}
+        unlock={unlock}
+      />
+    )
+  }
+
+  if (view.name === 'detail') {
+    return (
+      <DetailView
+        id={view.id}
+        onEdit={() => setView({ name: 'form', editId: view.id })}
+        onBack={() => setView({ name: 'list' })}
+      />
+    )
+  }
+
+  if (view.name === 'form') {
+    return (
+      <FormView
+        editId={view.editId}
+        onSave={(id) => setView({ name: 'detail', id })}
+        onBack={() => setView(view.editId ? { name: 'detail', id: view.editId } : { name: 'list' })}
+      />
+    )
+  }
+
+  if (view.name === 'trash') {
+    return <TrashView onBack={() => setView({ name: 'list' })} />
+  }
+
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
-      <p className="text-2xl font-mono">passwd</p>
-    </div>
+    <ListView
+      onSelect={(id) => setView({ name: 'detail', id })}
+      onNew={() => setView({ name: 'form' })}
+      onTrash={() => setView({ name: 'trash' })}
+      onLock={lock}
+    />
   )
 }
 

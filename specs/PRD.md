@@ -69,6 +69,7 @@ A lightweight, local-first password manager designed for simplicity. Unlike feat
 | P3 | Export vault (encrypted backup) | Data portability |
 | P3 | Import from CSV / other managers | Migration convenience |
 | P3 | Auto-lock after inactivity | Additional security hardening |
+| P3 | Manual-lock before inactivity | Additional security hardening |
 
 ---
 
