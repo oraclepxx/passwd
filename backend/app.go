@@ -137,6 +137,62 @@ func (a *App) VaultUnlock(password string) error {
 	return nil
 }
 
+// VaultChangeMasterPassword re-derives and updates the vault key using a new master password.
+// The current password is verified before the change is applied.
+func (a *App) VaultChangeMasterPassword(currentPassword, newPassword string) error {
+	if a.db == nil {
+		return models.ErrVaultNotFound
+	}
+	if !a.session.IsUnlocked() {
+		return models.ErrVaultLocked
+	}
+
+	// Verify current password.
+	salt, verifier, verifierNonce, err := vault.LoadVaultMeta(a.db)
+	if err != nil {
+		return models.ErrVaultNotFound
+	}
+	currentKey, err := vault.DeriveKey([]byte(currentPassword), salt)
+	if err != nil {
+		return err
+	}
+	cp := []byte(currentPassword)
+	clear(cp)
+	if len(verifier) > 0 {
+		plaintext, decErr := vault.Decrypt(currentKey, verifier, verifierNonce)
+		if decErr != nil || string(plaintext) != "passwd-verifier" {
+			clear(currentKey[:])
+			return models.ErrWrongPassword
+		}
+	}
+	clear(currentKey[:])
+
+	// Derive new key with a fresh salt.
+	newSalt := make([]byte, 32)
+	if _, err := rand.Read(newSalt); err != nil {
+		return err
+	}
+	newKey, err := vault.DeriveKey([]byte(newPassword), newSalt)
+	if err != nil {
+		return err
+	}
+	np := []byte(newPassword)
+	clear(np)
+
+	newVerifier, newVerifierNonce, err := vault.Encrypt(newKey, []byte("passwd-verifier"))
+	if err != nil {
+		clear(newKey[:])
+		return err
+	}
+	if err := vault.SaveVaultMeta(a.db, newSalt, newVerifier, newVerifierNonce); err != nil {
+		clear(newKey[:])
+		return err
+	}
+
+	a.session.Unlock(newKey)
+	return nil
+}
+
 // VaultLock locks the vault and zeroes the key from memory.
 func (a *App) VaultLock() error {
 	a.session.Lock()

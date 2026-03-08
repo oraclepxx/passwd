@@ -50,6 +50,10 @@ export function RecordUpdate(arg1, arg2) {
   return window['go']['backend']['App']['RecordUpdate'](arg1, arg2);
 }
 
+export function VaultChangeMasterPassword(arg1, arg2) {
+  return window['go']['backend']['App']['VaultChangeMasterPassword'](arg1, arg2);
+}
+
 export function VaultCreate(arg1) {
   return window['go']['backend']['App']['VaultCreate'](arg1);
 }

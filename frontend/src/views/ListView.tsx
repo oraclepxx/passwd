@@ -7,18 +7,17 @@ interface Props {
   onSelect: (id: string) => void
   onNew: () => void
   onTrash: () => void
+  onSettings: () => void
   onLock: () => void
 }
 
-export function ListView({ onSelect, onNew, onTrash, onLock }: Props) {
+export function ListView({ onSelect, onNew, onTrash, onSettings, onLock }: Props) {
   const [query, setQuery] = useState('')
   const [records, setRecords] = useState<RecordSummary[]>([])
   const [loading, setLoading] = useState(true)
   const { list } = useRecords()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // 7-3: Debounced search — call RecordList 150ms after last keystroke.
-  // Uses retry pattern: if bridge throws synchronously, retry after 100ms.
   useEffect(() => {
     let cancelled = false
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -49,55 +48,59 @@ export function ListView({ onSelect, onNew, onTrash, onLock }: Props) {
   }, [query, list])
 
   return (
-    <div className="flex flex-col h-screen bg-gray-950">
+    <div className="flex flex-col h-screen bg-gray-50">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-5 pb-3">
-        {/* 7-3: Search bar */}
         <input
           type="text"
           placeholder="Search…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="flex-1 px-3 py-1.5 bg-gray-800 text-white rounded-lg border border-gray-700
-                     focus:outline-none focus:border-indigo-500 text-sm placeholder-gray-500"
+          className="flex-1 px-3 py-1.5 bg-white text-gray-900 rounded-lg border border-gray-300
+                     focus:outline-none focus:border-indigo-400 text-sm placeholder-gray-400
+                     shadow-sm"
         />
-        {/* 7-5: New record button */}
         <button
           onClick={onNew}
           className="flex-shrink-0 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white
-                     rounded-lg text-sm font-medium transition-colors"
+                     rounded-lg text-sm font-medium transition-colors shadow-sm"
         >
           + New
         </button>
         <button
           onClick={onTrash}
-          className="flex-shrink-0 px-3 py-1.5 text-gray-400 hover:text-white transition-colors text-sm"
+          className="flex-shrink-0 px-3 py-1.5 text-gray-400 hover:text-gray-700 transition-colors text-sm"
         >
           Trash
         </button>
       </div>
 
-      {/* 7-4: Record list */}
+      {/* Record list */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2 relative">
         {loading && (
-          <p className="text-center text-gray-500 text-sm mt-10">Loading…</p>
+          <p className="text-center text-gray-400 text-sm mt-10">Loading…</p>
         )}
         {!loading && records.length === 0 && (
-          <p className="text-center text-gray-500 text-sm mt-10">
+          <p className="text-center text-gray-400 text-sm mt-10">
             {query ? 'No records match your search.' : 'No records yet.'}
           </p>
         )}
-        {/* 7-6: Clicking a card navigates to DetailView */}
         {records.map((r) => (
           <RecordCard key={r.id} record={r} onClick={onSelect} />
         ))}
       </div>
 
-      {/* Lock button — bottom right */}
-      <div className="px-4 pb-4 flex justify-end">
+      {/* Bottom bar */}
+      <div className="px-4 pb-4 flex justify-between">
+        <button
+          onClick={onSettings}
+          className="px-3 py-1.5 text-gray-400 hover:text-gray-700 text-sm transition-colors"
+        >
+          Settings
+        </button>
         <button
           onClick={onLock}
-          className="px-3 py-1.5 text-gray-500 hover:text-white text-sm transition-colors"
+          className="px-3 py-1.5 text-gray-400 hover:text-gray-700 text-sm transition-colors"
         >
           Lock
         </button>

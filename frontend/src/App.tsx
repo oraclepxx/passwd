@@ -5,10 +5,12 @@ import { ListView } from './views/ListView'
 import { DetailView } from './views/DetailView'
 import { FormView } from './views/FormView'
 import { TrashView } from './views/TrashView'
+import { ChangePasswordView } from './views/ChangePasswordView'
 
 type View =
   | { name: 'list' }
   | { name: 'trash' }
+  | { name: 'changePassword' }
   | { name: 'detail'; id: string }
   | { name: 'form'; editId?: string }
 
@@ -50,11 +52,16 @@ function App() {
     return <TrashView onBack={() => setView({ name: 'list' })} />
   }
 
+  if (view.name === 'changePassword') {
+    return <ChangePasswordView onBack={() => setView({ name: 'list' })} />
+  }
+
   return (
     <ListView
       onSelect={(id) => setView({ name: 'detail', id })}
       onNew={() => setView({ name: 'form' })}
       onTrash={() => setView({ name: 'trash' })}
+      onSettings={() => setView({ name: 'changePassword' })}
       onLock={lock}
     />
   )

@@ -27,6 +27,8 @@ export function RecordRestore(arg1:string):Promise<void>;
 
 export function RecordUpdate(arg1:string,arg2:models.RecordInput):Promise<void>;
 
+export function VaultChangeMasterPassword(arg1:string,arg2:string):Promise<void>;
+
 export function VaultCreate(arg1:string):Promise<void>;
 
 export function VaultExists():Promise<boolean>;

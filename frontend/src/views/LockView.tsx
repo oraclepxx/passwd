@@ -14,8 +14,6 @@ export function LockView({ onUnlocked, createVault, unlock }: Props) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Determine first launch by checking if vault exists.
-  // Poll until the Wails bridge is ready.
   useEffect(() => {
     let cancelled = false
 
@@ -26,7 +24,6 @@ export function LockView({ onUnlocked, createVault, unlock }: Props) {
           .then((unlocked) => {
             if (cancelled) return
             if (unlocked) { onUnlocked(); return }
-            // VaultExists is available at runtime even before bindings are regenerated.
             const exists: Promise<boolean> = (window as unknown as Record<string, Record<string, Record<string, Record<string, () => Promise<boolean>>>>>)['go']['backend']['App']['VaultExists']()
             exists.then((vaultExists) => {
               if (!cancelled) setIsFirstLaunch(!vaultExists)
@@ -76,52 +73,52 @@ export function LockView({ onUnlocked, createVault, unlock }: Props) {
 
   if (isFirstLaunch === null) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-950 text-gray-400">
-        <p className="font-mono text-sm">Loading…</p>
+      <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-400">
+        <p className="text-sm">Loading…</p>
       </div>
     )
   }
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-950">
-      <div className="w-full max-w-sm px-8 py-10 bg-gray-900 rounded-2xl shadow-xl">
-        <h1 className="text-2xl font-mono font-semibold text-white text-center mb-1">
+    <div className="flex items-center justify-center h-screen bg-gray-50">
+      <div className="w-full max-w-sm px-8 py-10 bg-white rounded-2xl shadow-lg border border-gray-200">
+        <h1 className="text-2xl font-mono font-semibold text-gray-900 text-center mb-1">
           passwd
         </h1>
-        <p className="text-center text-gray-400 text-sm mb-8">
+        <p className="text-center text-gray-500 text-sm mb-8">
           {isFirstLaunch ? 'Create your vault' : 'Unlock your vault'}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Master password</label>
+            <label className="block text-xs text-gray-500 mb-1">Master password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoFocus
               required
-              className="w-full px-3 py-2 bg-gray-800 text-white rounded-lg border border-gray-700
-                         focus:outline-none focus:border-indigo-500 font-mono text-sm"
+              className="w-full px-3 py-2 bg-white text-gray-900 rounded-lg border border-gray-300
+                         focus:outline-none focus:border-indigo-400 font-mono text-sm shadow-sm"
             />
           </div>
 
           {isFirstLaunch && (
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Confirm password</label>
+              <label className="block text-xs text-gray-500 mb-1">Confirm password</label>
               <input
                 type="password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 required
-                className="w-full px-3 py-2 bg-gray-800 text-white rounded-lg border border-gray-700
-                           focus:outline-none focus:border-indigo-500 font-mono text-sm"
+                className="w-full px-3 py-2 bg-white text-gray-900 rounded-lg border border-gray-300
+                           focus:outline-none focus:border-indigo-400 font-mono text-sm shadow-sm"
               />
             </div>
           )}
 
           {error && (
-            <p className="text-red-400 text-xs">{error}</p>
+            <p className="text-red-500 text-xs">{error}</p>
           )}
 
           <button

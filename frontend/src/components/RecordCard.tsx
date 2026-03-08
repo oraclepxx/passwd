@@ -11,15 +11,15 @@ export function RecordCard({ record, onClick }: Props) {
   return (
     <button
       onClick={() => onClick(record.id)}
-      className="w-full text-left px-4 py-3 bg-gray-800 hover:bg-gray-750 rounded-xl
-                 border border-gray-700 hover:border-gray-600 transition-colors group"
+      className="w-full text-left px-4 py-3 bg-white hover:bg-gray-50 rounded-xl
+                 border border-gray-200 hover:border-gray-300 transition-colors shadow-sm"
     >
       <div className="flex items-center gap-2">
-        <p className="text-white font-medium text-sm truncate">{record.name}</p>
+        <p className="text-gray-900 font-medium text-sm truncate">{record.name}</p>
         <span className={`flex-shrink-0 px-1.5 py-0.5 text-xs rounded font-medium
           ${isApiKey
-            ? 'bg-amber-900/50 text-amber-400 border border-amber-700/50'
-            : 'bg-indigo-900/50 text-indigo-400 border border-indigo-700/50'
+            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+            : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
           }`}>
           {isApiKey ? 'API Key' : 'Password'}
         </span>
