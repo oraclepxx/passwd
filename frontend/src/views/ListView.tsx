@@ -1,51 +1,54 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRecords } from '../hooks/useRecords'
 import { RecordCard } from '../components/RecordCard'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import type { RecordSummary } from '../hooks/useRecords'
 
 interface Props {
   onSelect: (id: string) => void
   onNew: () => void
+  onEdit: (id: string) => void
   onTrash: () => void
   onSettings: () => void
   onLock: () => void
 }
 
-export function ListView({ onSelect, onNew, onTrash, onSettings, onLock }: Props) {
+export function ListView({ onSelect, onNew, onEdit, onTrash, onSettings, onLock }: Props) {
   const [query, setQuery] = useState('')
   const [records, setRecords] = useState<RecordSummary[]>([])
   const [loading, setLoading] = useState(true)
-  const { list } = useRecords()
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const { list, remove } = useRecords()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => {
+  const load = (q: string) => {
     let cancelled = false
     if (debounceRef.current) clearTimeout(debounceRef.current)
-
     debounceRef.current = setTimeout(() => {
-      if (cancelled) return
       const attempt = () => {
         if (cancelled) return
         try {
-          list(query)
+          list(q)
             .then((results) => {
               if (!cancelled) { setRecords(results ?? []); setLoading(false) }
             })
-            .catch(() => {
-              if (!cancelled) setLoading(false)
-            })
+            .catch(() => { if (!cancelled) setLoading(false) })
         } catch {
           setTimeout(attempt, 100)
         }
       }
       attempt()
     }, 150)
+    return () => { cancelled = true; if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }
 
-    return () => {
-      cancelled = true
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-    }
-  }, [query, list])
+  useEffect(() => load(query), [query])
+
+  const handleDelete = async (id: string) => {
+    await remove(id)
+    setConfirmDelete(null)
+    load(query)
+  }
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -57,8 +60,7 @@ export function ListView({ onSelect, onNew, onTrash, onSettings, onLock }: Props
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="flex-1 px-3 py-1.5 bg-white text-gray-900 rounded-lg border border-gray-300
-                     focus:outline-none focus:border-indigo-400 text-sm placeholder-gray-400
-                     shadow-sm"
+                     focus:outline-none focus:border-indigo-400 text-sm placeholder-gray-400 shadow-sm"
         />
         <button
           onClick={onNew}
@@ -86,7 +88,13 @@ export function ListView({ onSelect, onNew, onTrash, onSettings, onLock }: Props
           </p>
         )}
         {records.map((r) => (
-          <RecordCard key={r.id} record={r} onClick={onSelect} />
+          <RecordCard
+            key={r.id}
+            record={r}
+            onClick={onSelect}
+            onEdit={onEdit}
+            onDelete={(id) => setConfirmDelete(id)}
+          />
         ))}
       </div>
 
@@ -105,6 +113,14 @@ export function ListView({ onSelect, onNew, onTrash, onSettings, onLock }: Props
           Lock
         </button>
       </div>
+
+      {confirmDelete && (
+        <ConfirmDialog
+          message={"Delete this record?\nThis can be restored from trash."}
+          onConfirm={() => handleDelete(confirmDelete)}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   )
 }

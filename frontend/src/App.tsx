@@ -60,6 +60,7 @@ function App() {
     <ListView
       onSelect={(id) => setView({ name: 'detail', id })}
       onNew={() => setView({ name: 'form' })}
+      onEdit={(id) => setView({ name: 'form', editId: id })}
       onTrash={() => setView({ name: 'trash' })}
       onSettings={() => setView({ name: 'changePassword' })}
       onLock={lock}
