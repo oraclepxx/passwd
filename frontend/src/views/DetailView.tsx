@@ -72,93 +72,110 @@ export function DetailView({ id, onEdit, onBack }: Props) {
         />
       )}
 
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 pt-5 pb-3 border-b border-gray-800">
-        <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors text-sm">
+      {/* Header — matches FormView */}
+      <div className="flex items-center justify-between px-5 pt-4 pb-4 border-b border-gray-800/60">
+        <button onClick={onBack} className="text-gray-500 hover:text-white transition-colors text-sm">
           ← Back
         </button>
-        <h1 className="flex-1 font-semibold text-white text-base truncate">{record.name}</h1>
-        <button
-          onClick={onEdit}
-          className="px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-        >
-          Edit
-        </button>
-        <button
-          onClick={() => setShowConfirm(true)}
-          className="px-3 py-1.5 text-sm bg-red-700 hover:bg-red-600 text-white rounded-lg transition-colors"
-        >
-          Delete
-        </button>
+        <h1 className="font-semibold text-white text-sm truncate max-w-xs">{record.name}</h1>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onEdit}
+            className="px-4 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors"
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => setShowConfirm(true)}
+            className="text-sm text-gray-500 hover:text-red-400 transition-colors"
+          >
+            Delete
+          </button>
+        </div>
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {/* Username */}
-        <Field label="Username">
-          <div className="flex items-center gap-2">
-            <span className="flex-1 text-white text-sm break-all font-mono">{displayUsername}</span>
-            <button
-              onClick={() => setShowUsername(!showUsername)}
-              className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors flex-shrink-0"
-            >
-              {showUsername ? 'Hide' : 'Show'}
-            </button>
-            <CopyButton
-              onCopy={() => copy(record.username, 'username')}
-              copied={copiedKey === 'username'}
-            />
-          </div>
-        </Field>
+      <div className="flex-1 overflow-y-auto py-6 px-5">
+        <div className="max-w-md mx-auto space-y-3">
 
-        {/* Password */}
-        <Field label="Password">
-          <div className="flex items-center gap-2">
-            <span className="flex-1 text-white text-sm break-all font-mono">
-              {showPassword ? record.password : '••••••••'}
-            </span>
-            <button
-              onClick={() => setShowPassword(!showPassword)}
-              className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors flex-shrink-0"
-            >
-              {showPassword ? 'Hide' : 'Reveal'}
-            </button>
-            <CopyButton
-              onCopy={() => copy(record.password, 'password')}
-              copied={copiedKey === 'password'}
-            />
-          </div>
-        </Field>
-
-        {/* URL */}
-        {record.url && (
-          <Field label="URL">
-            <span className="text-white text-sm break-all">{record.url}</span>
-          </Field>
-        )}
-
-        {/* Notes */}
-        {record.notes && (
-          <Field label="Notes">
-            <span className="text-white text-sm whitespace-pre-wrap">{record.notes}</span>
-          </Field>
-        )}
-
-        {/* Tags */}
-        {record.tags && record.tags.length > 0 && (
-          <Field label="Tags">
-            <div className="flex flex-wrap gap-2">
-              {record.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="px-2 py-0.5 bg-gray-700 text-gray-300 text-xs rounded-full"
+          {/* Username */}
+          <Field label="Username">
+            <div className="flex items-center bg-gray-900 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
+              <span className="flex-1 px-3 py-2 text-white text-sm font-mono break-all min-w-0 text-left">
+                {displayUsername}
+              </span>
+              <div className="flex items-center gap-1 pr-2 flex-shrink-0">
+                <button
+                  onClick={() => setShowUsername(!showUsername)}
+                  className="px-2 py-1 text-xs text-gray-500 hover:text-white transition-colors rounded"
                 >
-                  {tag}
-                </span>
-              ))}
+                  {showUsername ? 'Hide' : 'Show'}
+                </button>
+                <div className="w-px h-3 bg-gray-700" />
+                <button
+                  onClick={() => copy(record.username, 'username')}
+                  className="px-2 py-1 text-xs text-gray-500 hover:text-white transition-colors rounded"
+                >
+                  {copiedKey === 'username' ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
             </div>
           </Field>
-        )}
+
+          {/* Password */}
+          <Field label="Password">
+            <div className="flex items-center bg-gray-900 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
+              <span className="flex-1 px-3 py-2 text-white text-sm font-mono min-w-0 text-left">
+                {showPassword ? record.password : '••••••••'}
+              </span>
+              <div className="flex items-center gap-1 pr-2 flex-shrink-0">
+                <button
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="px-2 py-1 text-xs text-gray-500 hover:text-white transition-colors rounded"
+                >
+                  {showPassword ? 'Hide' : 'Reveal'}
+                </button>
+                <div className="w-px h-3 bg-gray-700" />
+                <button
+                  onClick={() => copy(record.password, 'password')}
+                  className="px-2 py-1 text-xs text-gray-500 hover:text-white transition-colors rounded"
+                >
+                  {copiedKey === 'password' ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+          </Field>
+
+          <div className="pt-1 border-t border-gray-800/60" />
+
+          <Field label="URL">
+            <div className="px-3 py-2 bg-gray-900 rounded-lg border border-gray-700 text-sm break-all min-h-[36px]
+                            text-white text-left">
+              {record.url || <span className="text-gray-600">—</span>}
+            </div>
+          </Field>
+
+          <Field label="Notes">
+            <div className="px-3 py-2 bg-gray-900 rounded-lg border border-gray-700 text-sm whitespace-pre-wrap min-h-[36px]
+                            text-white text-left">
+              {record.notes || <span className="text-gray-600">—</span>}
+            </div>
+          </Field>
+
+          <Field label="Tags">
+            <div className="flex flex-wrap gap-1.5 px-3 py-2 bg-gray-900 rounded-lg border border-gray-700 min-h-[36px] justify-start">
+              {record.tags && record.tags.length > 0
+                ? record.tags.map((tag) => (
+                    <span key={tag} className="px-2 py-0.5 bg-gray-700 text-gray-300 text-xs rounded-full">
+                      {tag}
+                    </span>
+                  ))
+                : <span className="text-gray-600 text-sm">—</span>
+              }
+            </div>
+          </Field>
+
+        </div>
       </div>
     </div>
   )
@@ -166,20 +183,9 @@ export function DetailView({ id, onEdit, onBack }: Props) {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg px-4 py-3">
-      <p className="text-gray-500 text-xs mb-1">{label}</p>
+    <div>
+      <label className="block text-left text-xs font-medium text-gray-400 mb-1.5">{label}</label>
       {children}
     </div>
-  )
-}
-
-function CopyButton({ onCopy, copied }: { onCopy: () => void; copied: boolean }) {
-  return (
-    <button
-      onClick={onCopy}
-      className="text-xs text-gray-400 hover:text-white transition-colors flex-shrink-0"
-    >
-      {copied ? 'Copied!' : 'Copy'}
-    </button>
   )
 }
