@@ -42,7 +42,7 @@ function App() {
     return (
       <FormView
         editId={view.editId}
-        onSave={(id) => setView({ name: 'detail', id })}
+        onSave={(id) => setView(view.editId ? { name: 'detail', id } : { name: 'list' })}
         onBack={() => setView(view.editId ? { name: 'detail', id: view.editId } : { name: 'list' })}
       />
     )
