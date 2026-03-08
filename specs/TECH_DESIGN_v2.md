@@ -44,32 +44,37 @@ CREATE TABLE vault_meta (
 -- Encrypted records
 CREATE TABLE records (
     id          TEXT PRIMARY KEY,     -- UUID v4
+    record_type TEXT NOT NULL DEFAULT 'password', -- 'password' | 'api_key'
     ciphertext  BLOB NOT NULL,        -- AES-256-GCM encrypted JSON
     nonce       BLOB NOT NULL,        -- 12-byte GCM nonce (unique per record)
     created_at  INTEGER NOT NULL,     -- Unix timestamp
     updated_at  INTEGER NOT NULL,
     deleted_at  INTEGER,              -- NULL = active; set = soft-deleted
-    search_hint TEXT NOT NULL         -- Unencrypted: name + username (for search)
+    search_hint TEXT NOT NULL         -- Unencrypted: name (+ username for password type)
 );
 
--- Password history (per record, last 5)
-CREATE TABLE password_history (
+-- Secret field history (per record, last 5) — applies to password and api_key records
+CREATE TABLE secret_history (
     id          TEXT PRIMARY KEY,
     record_id   TEXT NOT NULL REFERENCES records(id),
-    ciphertext  BLOB NOT NULL,        -- Encrypted previous password
+    ciphertext  BLOB NOT NULL,        -- Encrypted previous secret value
     nonce       BLOB NOT NULL,
     replaced_at INTEGER NOT NULL
 );
 
 CREATE INDEX idx_records_deleted_at ON records(deleted_at);
 CREATE INDEX idx_records_search     ON records(search_hint);
-CREATE INDEX idx_history_record     ON password_history(record_id);
+CREATE INDEX idx_history_record     ON secret_history(record_id);
 ```
 
 ### 2.2 Record Plaintext Structure (encrypted JSON)
 
+Records have two types. The `type` field determines which fields are present:
+
+**Password record:**
 ```go
 type RecordPlaintext struct {
+    Type     string   `json:"type"`              // "password"
     Name     string   `json:"name"`
     Username string   `json:"username"`
     Password string   `json:"password"`
@@ -79,13 +84,27 @@ type RecordPlaintext struct {
 }
 ```
 
+**API Key record:**
+```go
+type RecordPlaintext struct {
+    Type      string   `json:"type"`             // "api_key"
+    Name      string   `json:"name"`
+    SecretKey string   `json:"secret_key"`       // the API key / token value
+    Notes     string   `json:"notes,omitempty"`
+    Tags      []string `json:"tags,omitempty"`
+}
+```
+
+Both types share the same `RecordPlaintext` struct in Go (unused fields are zero-valued and omitted in JSON).
+
 ### 2.3 search_hint Field
 
-`search_hint` is stored **unencrypted** to support fast filtering without decrypting every record. It contains only `name` and `username` — no passwords, URLs, or notes.
+`search_hint` is stored **unencrypted** to support fast filtering without decrypting every record. It never contains passwords, secret keys, URLs, or notes.
 
-Format: `{name}\t{username}` (tab-separated, lowercased).
+- **Password type:** `{name}\t{username}` (tab-separated, lowercased)
+- **API key type:** `{name}` (lowercased only; no username)
 
-This is an intentional privacy tradeoff: name and username are low-sensitivity metadata. Password, URL, and notes remain fully encrypted.
+This is an intentional privacy tradeoff: name and username are low-sensitivity metadata. All secret values remain fully encrypted.
 
 ---
 
@@ -167,12 +186,12 @@ All public methods on `App` are automatically bound to the frontend via the Wail
 | `RecordCreate` | `RecordInput` | `(string, error)` | Returns new record ID |
 | `RecordList` | `query string` | `([]RecordSummary, error)` | Filtered by search_hint |
 | `RecordGet` | `id string` | `(RecordDetail, error)` | Decrypts on demand |
-| `RecordUpdate` | `id string, data RecordInput` | `error` | Saves history if password changed |
+| `RecordUpdate` | `id string, data RecordInput` | `error` | Saves history if secret field changed |
 | `RecordDelete` | `id string` | `error` | Soft delete |
 | `RecordRestore` | `id string` | `error` | Un-soft-delete |
 | `RecordPurge` | `id string` | `error` | Permanent delete |
-| `RecordHistory` | `id string` | `([]PasswordHistory, error)` | Last 5 password versions |
-| `PasswordGenerate` | `GeneratorOptions` | `(string, error)` | |
+| `RecordHistory` | `id string` | `([]SecretHistory, error)` | Last 5 secret field versions |
+| `PasswordGenerate` | `GeneratorOptions` | `(string, error)` | Password type only |
 | `ClipboardCopy` | `value string, timeoutSecs int` | `error` | Schedules clear |
 
 ### 4.3 Go Structs / TypeScript Types
@@ -181,28 +200,39 @@ All public methods on `App` are automatically bound to the frontend via the Wail
 // Go (models/record.go)
 type RecordSummary struct {
     ID             string `json:"id"`
+    Type           string `json:"type"`            // "password" | "api_key"
     Name           string `json:"name"`
-    UsernameMasked string `json:"username_masked"` // e.g. "hel*****ld"
+    UsernameMasked string `json:"username_masked"` // e.g. "hel*****ld"; empty for api_key
     CreatedAt      int64  `json:"created_at"`
     UpdatedAt      int64  `json:"updated_at"`
 }
 
 type RecordDetail struct {
     RecordSummary
-    Username string   `json:"username"`
-    Password string   `json:"password"`
-    URL      string   `json:"url,omitempty"`
-    Notes    string   `json:"notes,omitempty"`
-    Tags     []string `json:"tags,omitempty"`
+    Username  string   `json:"username,omitempty"`   // password type only
+    Password  string   `json:"password,omitempty"`   // password type only
+    SecretKey string   `json:"secret_key,omitempty"` // api_key type only
+    URL       string   `json:"url,omitempty"`         // password type only
+    Notes     string   `json:"notes,omitempty"`
+    Tags      []string `json:"tags,omitempty"`
 }
 
 type RecordInput struct {
-    Name     string   `json:"name"`
-    Username string   `json:"username"`
-    Password string   `json:"password"`
-    URL      string   `json:"url,omitempty"`
-    Notes    string   `json:"notes,omitempty"`
-    Tags     []string `json:"tags,omitempty"`
+    Type      string   `json:"type"`                  // "password" | "api_key"
+    Name      string   `json:"name"`
+    Username  string   `json:"username,omitempty"`    // password type only
+    Password  string   `json:"password,omitempty"`    // password type only
+    SecretKey string   `json:"secret_key,omitempty"`  // api_key type only
+    URL       string   `json:"url,omitempty"`          // password type only
+    Notes     string   `json:"notes,omitempty"`
+    Tags      []string `json:"tags,omitempty"`
+}
+
+type SecretHistory struct {
+    ID         string `json:"id"`
+    RecordID   string `json:"record_id"`
+    Secret     string `json:"secret"`      // decrypted previous value (password or api key)
+    ReplacedAt int64  `json:"replaced_at"`
 }
 
 type GeneratorOptions struct {
@@ -219,7 +249,7 @@ Wails auto-generates TypeScript bindings from Go structs — no manual type defi
 
 ## 5. Username Masking Logic
 
-Applied in Go before returning `RecordSummary`:
+Applied in Go before returning `RecordSummary`. Only applies to `password` type records; `api_key` records return an empty `username_masked`.
 
 ```go
 func maskUsername(username string) string {
@@ -313,18 +343,18 @@ Minimum length: 8. Default: 20.
 
 ---
 
-## 8. Password History
+## 8. Secret Field History
 
-On `RecordUpdate`, if the password field changed:
+On `RecordUpdate`, if the secret field changed (password for `password` type; secret key for `api_key` type):
 
-1. Insert current encrypted password into `password_history`
+1. Insert current encrypted secret value into `secret_history`
 2. Prune to last 5 entries:
 
 ```sql
-DELETE FROM password_history
+DELETE FROM secret_history
 WHERE record_id = ?
   AND id NOT IN (
-    SELECT id FROM password_history
+    SELECT id FROM secret_history
     WHERE record_id = ?
     ORDER BY replaced_at DESC
     LIMIT 5
@@ -406,7 +436,7 @@ No `@tauri-apps/api` needed — Wails auto-generates its own bindings.
 
 - [ ] `vaultKey` is a `[32]byte`; zeroed with `clear(vaultKey[:])` on lock
 - [ ] All nonces generated with `crypto/rand` (never `math/rand`)
-- [ ] `search_hint` contains only name + username, never password/URL/notes
+- [ ] `search_hint` contains only name + username (password type) or name only (api_key type); never secret values/URL/notes
 - [ ] All bound methods check `VaultIsUnlocked()` before operating on records
 - [ ] Wails CSP configured to deny all external network origins
 - [ ] Clipboard cleared after configurable timeout

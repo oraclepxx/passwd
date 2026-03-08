@@ -27,7 +27,7 @@ export function LockView({ onUnlocked, createVault, unlock }: Props) {
             if (cancelled) return
             if (unlocked) { onUnlocked(); return }
             // VaultExists is available at runtime even before bindings are regenerated.
-            const exists: Promise<boolean> = (window as Record<string, Record<string, Record<string, Record<string, () => Promise<boolean>>>>>)['go']['backend']['App']['VaultExists']()
+            const exists: Promise<boolean> = (window as unknown as Record<string, Record<string, Record<string, Record<string, () => Promise<boolean>>>>>)['go']['backend']['App']['VaultExists']()
             exists.then((vaultExists) => {
               if (!cancelled) setIsFirstLaunch(!vaultExists)
             }).catch(() => {

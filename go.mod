@@ -1,4 +1,4 @@
-module passwd
+module github.com/oraclepxx/passwd
 
 go 1.24.0
 

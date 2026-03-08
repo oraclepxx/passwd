@@ -15,7 +15,7 @@ export function DetailView({ id, onEdit, onBack }: Props) {
   const { copy, copiedKey } = useClipboard()
   const [record, setRecord] = useState<RecordDetail | null>(null)
   const [error, setError] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
+  const [showSecret, setShowSecret] = useState(false)
   const [showUsername, setShowUsername] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
@@ -39,9 +39,7 @@ export function DetailView({ id, onEdit, onBack }: Props) {
     return (
       <div className="flex flex-col h-screen bg-gray-950 items-center justify-center">
         <p className="text-red-400 text-sm">{error}</p>
-        <button onClick={onBack} className="mt-4 text-gray-400 hover:text-white text-sm">
-          Back
-        </button>
+        <button onClick={onBack} className="mt-4 text-gray-400 hover:text-white text-sm">Back</button>
       </div>
     )
   }
@@ -54,13 +52,13 @@ export function DetailView({ id, onEdit, onBack }: Props) {
     )
   }
 
+  const isApiKey = record.type === 'api_key'
+
   const handleDelete = async () => {
     await remove(id)
     setShowConfirm(false)
     onBack()
   }
-
-  const displayUsername = showUsername ? record.username : record.username_masked
 
   return (
     <div className="flex flex-col h-screen bg-gray-950">
@@ -72,7 +70,7 @@ export function DetailView({ id, onEdit, onBack }: Props) {
         />
       )}
 
-      {/* Header — matches FormView */}
+      {/* Header */}
       <div className="flex items-center justify-between px-5 pt-4 pb-4 border-b border-gray-800/60">
         <button onClick={onBack} className="text-gray-500 hover:text-white transition-colors text-sm">
           ← Back
@@ -98,49 +96,57 @@ export function DetailView({ id, onEdit, onBack }: Props) {
       <div className="flex-1 overflow-y-auto py-6 px-5">
         <div className="max-w-md mx-auto space-y-3">
 
-          {/* Username */}
-          <Field label="Username">
-            <div className="flex items-center bg-gray-900 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
-              <span className="flex-1 px-3 py-2 text-white text-sm font-mono break-all min-w-0 text-left">
-                {displayUsername}
-              </span>
-              <div className="flex items-center gap-1 pr-2 flex-shrink-0">
-                <button
-                  onClick={() => setShowUsername(!showUsername)}
-                  className="px-2 py-1 text-xs text-gray-500 hover:text-white transition-colors rounded"
-                >
-                  {showUsername ? 'Hide' : 'Show'}
-                </button>
-                <div className="w-px h-3 bg-gray-700" />
-                <button
-                  onClick={() => copy(record.username, 'username')}
-                  className="px-2 py-1 text-xs text-gray-500 hover:text-white transition-colors rounded"
-                >
-                  {copiedKey === 'username' ? 'Copied!' : 'Copy'}
-                </button>
+          {/* 8-4: Username — password type only */}
+          {!isApiKey && (
+            <Field label="Username">
+              <div className="flex items-center bg-gray-900 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
+                <span className="flex-1 px-3 py-2 text-white text-sm font-mono break-all min-w-0 text-left">
+                  {showUsername ? record.username : record.username_masked}
+                </span>
+                <div className="flex items-center gap-1 pr-2 flex-shrink-0">
+                  <button
+                    onClick={() => setShowUsername(!showUsername)}
+                    className="px-2 py-1 text-xs text-gray-500 hover:text-white transition-colors rounded"
+                  >
+                    {showUsername ? 'Hide' : 'Show'}
+                  </button>
+                  <div className="w-px h-3 bg-gray-700" />
+                  {/* 8-6: Copy username */}
+                  <button
+                    onClick={() => copy(record.username ?? '', 'username')}
+                    className="px-2 py-1 text-xs text-gray-500 hover:text-white transition-colors rounded"
+                  >
+                    {copiedKey === 'username' ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
               </div>
-            </div>
-          </Field>
+            </Field>
+          )}
 
-          {/* Password */}
-          <Field label="Password">
+          {/* 8-5: Password (password type) / 8-5a: Secret key (api_key type) */}
+          <Field label={isApiKey ? 'Key / Token' : 'Password'}>
             <div className="flex items-center bg-gray-900 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
-              <span className="flex-1 px-3 py-2 text-white text-sm font-mono min-w-0 text-left">
-                {showPassword ? record.password : '••••••••'}
+              <span className="flex-1 px-3 py-2 text-white text-sm font-mono min-w-0 text-left break-all">
+                {showSecret
+                  ? (isApiKey ? record.secret_key : record.password)
+                  : '••••••••'}
               </span>
               <div className="flex items-center gap-1 pr-2 flex-shrink-0">
                 <button
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowSecret(!showSecret)}
                   className="px-2 py-1 text-xs text-gray-500 hover:text-white transition-colors rounded"
                 >
-                  {showPassword ? 'Hide' : 'Reveal'}
+                  {showSecret ? 'Hide' : 'Reveal'}
                 </button>
                 <div className="w-px h-3 bg-gray-700" />
                 <button
-                  onClick={() => copy(record.password, 'password')}
+                  onClick={() => copy(
+                    (isApiKey ? record.secret_key : record.password) ?? '',
+                    'secret'
+                  )}
                   className="px-2 py-1 text-xs text-gray-500 hover:text-white transition-colors rounded"
                 >
-                  {copiedKey === 'password' ? 'Copied!' : 'Copy'}
+                  {copiedKey === 'secret' ? 'Copied!' : 'Copy'}
                 </button>
               </div>
             </div>
@@ -148,20 +154,23 @@ export function DetailView({ id, onEdit, onBack }: Props) {
 
           <div className="pt-1 border-t border-gray-800/60" />
 
-          <Field label="URL">
-            <div className="px-3 py-2 bg-gray-900 rounded-lg border border-gray-700 text-sm break-all min-h-[36px]
-                            text-white text-left">
-              {record.url || <span className="text-gray-600">—</span>}
-            </div>
-          </Field>
+          {/* 8-7: URL — password type only */}
+          {!isApiKey && (
+            <Field label="URL">
+              <div className="px-3 py-2 bg-gray-900 rounded-lg border border-gray-700 text-sm break-all min-h-[36px] text-white text-left">
+                {record.url || <span className="text-gray-600">—</span>}
+              </div>
+            </Field>
+          )}
 
+          {/* 8-7: Notes — both types */}
           <Field label="Notes">
-            <div className="px-3 py-2 bg-gray-900 rounded-lg border border-gray-700 text-sm whitespace-pre-wrap min-h-[36px]
-                            text-white text-left">
+            <div className="px-3 py-2 bg-gray-900 rounded-lg border border-gray-700 text-sm whitespace-pre-wrap min-h-[36px] text-white text-left">
               {record.notes || <span className="text-gray-600">—</span>}
             </div>
           </Field>
 
+          {/* 8-7: Tags — both types */}
           <Field label="Tags">
             <div className="flex flex-wrap gap-1.5 px-3 py-2 bg-gray-900 rounded-lg border border-gray-700 min-h-[36px] justify-start">
               {record.tags && record.tags.length > 0

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"passwd/backend/models"
+	"github.com/oraclepxx/passwd/backend/models"
 )
 
 const (

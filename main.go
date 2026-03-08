@@ -3,7 +3,7 @@ package main
 import (
 	"embed"
 
-	"passwd/backend"
+	"github.com/oraclepxx/passwd/backend"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/menu"

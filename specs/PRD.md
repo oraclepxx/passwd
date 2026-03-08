@@ -5,7 +5,7 @@
 **App Name:** passwd (working title)
 
 **Summary:**
-A lightweight, local-first password manager designed for simplicity. Unlike feature-heavy commercial alternatives (1Password, Bitwarden, LastPass), this app focuses exclusively on the core workflow: store, retrieve, edit, and delete password records — with no clutter.
+A lightweight, local-first credentials (password or secret key) manager designed for simplicity. Unlike feature-heavy commercial alternatives (1Password, Bitwarden, LastPass), this app focuses exclusively on the core workflow: store, retrieve, edit, and delete credentials records — with no clutter.
 
 **Target User:**
 - Solo individual (personal use)
@@ -17,37 +17,54 @@ A lightweight, local-first password manager designed for simplicity. Unlike feat
 
 ## 2. Functionality Details
 
-### 2.1 Create Password Record
+### 2.1 Create Credentials Record
 
-- User can create a new record with the following fields:
+- User can create a new record with one of two types:
+
+  **Type: Password**
   - **Name / Title** (required): e.g., "Gmail", "GitHub"
   - **Username / Email** (required)
-  - **Password** (required)
+  - **Password** (required): supports manual entry or auto-generation
   - **URL** (optional): associated website
   - **Notes** (optional): free-text field for extra context
   - **Tags** (optional): for grouping/filtering
-- Password field supports manual entry or auto-generation
-- Auto-generate password with configurable options: length, use of symbols, numbers, uppercase
+  - Auto-generate password with configurable options: length, use of symbols, numbers, uppercase
 
-### 2.2 Retrieve Password Record
+  **Type: Secret API Key**
+  - **Name / Title** (required): e.g., "OpenAI API Key", "AWS Secret Key"
+  - **Key / Token** (required): the API key or secret value
+  - **Notes** (optional): free-text field for extra context
+  - **Tags** (optional): for grouping/filtering
+
+- Both types treat their secret field (password / key) identically: hidden by default, reveal on explicit action, copyable with auto-clear
+
+### 2.2 Retrieve Credentials Record
 
 - Search/filter records by name, username, URL, or tags
-- View record detail: all fields visible; username shown partially masked (first 3 chars + `***` + last 2 chars, e.g. `helloworld` → `hel*****ld`); password hidden by default
-- Reveal password on explicit action (click/tap to show)
-- One-click copy to clipboard for username and password
+- View record detail: all fields visible; username shown partially masked (first 3 chars + `***` + last 2 chars, e.g. `helloworld` → `hel*****ld`); password or secret key hidden by default
+- Reveal password or secret key on explicit action (click/tap to show)
+- One-click copy to clipboard for username and password/secret key
 - Clipboard is cleared automatically after a configurable timeout (default: 30 seconds)
 
-### 2.3 Edit Password Record
+### 2.3 Edit Credentials Record
 
 - Edit any field of an existing record
-- Password change logs previous value in a local history (last 5 versions, for recovery purposes)
+- Password/Secret key change logs previous value in a local history (last 5 versions, for recovery purposes)
 - Save and cancel actions clearly presented
 
-### 2.4 Delete Password Record
+### 2.4 Delete Credentials Record
 
 - Soft delete: move to trash with confirmation prompt
 - Restore from trash within a grace period (e.g., 30 days)
 - Permanent delete from trash with secondary confirmation
+
+### 2.5 Change Master Password
+
+- User can update the vault master password from within the app (vault must be unlocked)
+- Requires entry of the current password for confirmation before accepting the new one
+- New password must meet minimum length requirement (≥ 8 characters)
+- On success: re-derives the vault key from the new password, re-encrypts the salt verifier, and updates the stored salt — all existing records remain accessible
+- Session stays unlocked after a successful master password change
 
 ---
 
@@ -66,6 +83,8 @@ A lightweight, local-first password manager designed for simplicity. Unlike feat
 | P2 | Password history (last 5) | Safety net for edits |
 | P2 | Tags / filtering | Organization for growing vaults |
 | P2 | Trash / restore | Safety net for deletes |
+| P2 | Secret API Key field | Store API tokens alongside passwords |
+| P2 | Change master password | Credential hygiene and recovery |
 | P3 | Export vault (encrypted backup) | Data portability |
 | P3 | Import from CSV / other managers | Migration convenience |
 | P3 | Auto-lock after inactivity | Additional security hardening |

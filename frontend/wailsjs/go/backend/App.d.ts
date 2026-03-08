@@ -15,7 +15,7 @@ export function RecordDelete(arg1:string):Promise<void>;
 
 export function RecordGet(arg1:string):Promise<models.RecordDetail>;
 
-export function RecordHistory(arg1:string):Promise<Array<models.PasswordHistory>>;
+export function RecordHistory(arg1:string):Promise<Array<models.SecretHistory>>;
 
 export function RecordList(arg1:string):Promise<Array<models.RecordSummary>>;
 

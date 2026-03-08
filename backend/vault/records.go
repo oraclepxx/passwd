@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"passwd/backend/models"
+	"github.com/oraclepxx/passwd/backend/models"
 )
 
 // maskUsername partially masks a username per the design spec:
@@ -24,15 +24,17 @@ func maskUsername(username string) string {
 	return prefix + stars + suffix
 }
 
-// CreateRecord encrypts and inserts a new password record.
+// CreateRecord encrypts and inserts a new credential record.
 func CreateRecord(db *DB, key [32]byte, input models.RecordInput) (string, error) {
 	plain := models.RecordPlaintext{
-		Name:     input.Name,
-		Username: input.Username,
-		Password: input.Password,
-		URL:      input.URL,
-		Notes:    input.Notes,
-		Tags:     input.Tags,
+		Type:      input.Type,
+		Name:      input.Name,
+		Username:  input.Username,
+		Password:  input.Password,
+		SecretKey: input.SecretKey,
+		URL:       input.URL,
+		Notes:     input.Notes,
+		Tags:      input.Tags,
 	}
 
 	plainJSON, err := json.Marshal(plain)
@@ -46,13 +48,13 @@ func CreateRecord(db *DB, key [32]byte, input models.RecordInput) (string, error
 	}
 
 	id := uuid.New().String()
-	hint := strings.ToLower(input.Name + "\t" + input.Username)
+	hint := buildSearchHint(input.Type, input.Name, input.Username)
 	now := time.Now().Unix()
 
 	_, err = db.conn.Exec(
-		`INSERT INTO records (id, ciphertext, nonce, created_at, updated_at, search_hint)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		id, ciphertext, nonce, now, now, hint,
+		`INSERT INTO records (id, record_type, ciphertext, nonce, created_at, updated_at, search_hint)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		id, input.Type, ciphertext, nonce, now, now, hint,
 	)
 	if err != nil {
 		return "", fmt.Errorf("insert: %w", err)
@@ -61,11 +63,21 @@ func CreateRecord(db *DB, key [32]byte, input models.RecordInput) (string, error
 	return id, nil
 }
 
+// buildSearchHint constructs the unencrypted search hint for a record.
+// For password type: "name\tusername" (lowercased).
+// For api_key type: "name" (lowercased only).
+func buildSearchHint(recordType, name, username string) string {
+	if recordType == "api_key" {
+		return strings.ToLower(name)
+	}
+	return strings.ToLower(name + "\t" + username)
+}
+
 // ListRecords returns summaries of active records, optionally filtered by query.
 func ListRecords(db *DB, query string) ([]models.RecordSummary, error) {
-	const baseQ = `SELECT id, search_hint, created_at, updated_at FROM records
+	const baseQ = `SELECT id, record_type, search_hint, created_at, updated_at FROM records
 	               WHERE deleted_at IS NULL ORDER BY updated_at DESC`
-	const filterQ = `SELECT id, search_hint, created_at, updated_at FROM records
+	const filterQ = `SELECT id, record_type, search_hint, created_at, updated_at FROM records
 	                 WHERE deleted_at IS NULL AND search_hint LIKE ?
 	                 ORDER BY updated_at DESC`
 
@@ -85,12 +97,12 @@ func ListRecords(db *DB, query string) ([]models.RecordSummary, error) {
 	for rows.Next() {
 		var s models.RecordSummary
 		var hint string
-		if err := rows.Scan(&s.ID, &hint, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.Type, &hint, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}
 		parts := strings.SplitN(hint, "\t", 2)
 		s.Name = parts[0]
-		if len(parts) == 2 {
+		if s.Type == "password" && len(parts) == 2 {
 			s.UsernameMasked = maskUsername(parts[1])
 		}
 		summaries = append(summaries, s)
@@ -102,13 +114,13 @@ func ListRecords(db *DB, query string) ([]models.RecordSummary, error) {
 func GetRecord(db *DB, key [32]byte, id string) (models.RecordDetail, error) {
 	var ciphertext, nonce []byte
 	var createdAt, updatedAt int64
-	var hint string
+	var hint, recordType string
 
 	err := db.conn.QueryRow(
-		`SELECT ciphertext, nonce, created_at, updated_at, search_hint
+		`SELECT record_type, ciphertext, nonce, created_at, updated_at, search_hint
 		 FROM records WHERE id = ? AND deleted_at IS NULL`,
 		id,
-	).Scan(&ciphertext, &nonce, &createdAt, &updatedAt, &hint)
+	).Scan(&recordType, &ciphertext, &nonce, &createdAt, &updatedAt, &hint)
 	if err != nil {
 		return models.RecordDetail{}, models.ErrRecordNotFound
 	}
@@ -123,51 +135,61 @@ func GetRecord(db *DB, key [32]byte, id string) (models.RecordDetail, error) {
 		return models.RecordDetail{}, fmt.Errorf("unmarshal: %w", err)
 	}
 
-	parts := strings.SplitN(hint, "\t", 2)
-	name := parts[0]
 	masked := ""
-	if len(parts) == 2 {
-		masked = maskUsername(parts[1])
+	if recordType == "password" {
+		parts := strings.SplitN(hint, "\t", 2)
+		if len(parts) == 2 {
+			masked = maskUsername(parts[1])
+		}
 	}
 
 	return models.RecordDetail{
 		RecordSummary: models.RecordSummary{
 			ID:             id,
-			Name:           name,
+			Type:           recordType,
+			Name:           plain.Name,
 			UsernameMasked: masked,
 			CreatedAt:      createdAt,
 			UpdatedAt:      updatedAt,
 		},
-		Username: plain.Username,
-		Password: plain.Password,
-		URL:      plain.URL,
-		Notes:    plain.Notes,
-		Tags:     plain.Tags,
+		Username:  plain.Username,
+		Password:  plain.Password,
+		SecretKey: plain.SecretKey,
+		URL:       plain.URL,
+		Notes:     plain.Notes,
+		Tags:      plain.Tags,
 	}, nil
 }
 
-// UpdateRecord re-encrypts a record. If the password changed, the old one is
-// saved to password_history (capped at 5 entries).
+// UpdateRecord re-encrypts a record. If the secret field changed, the old value is
+// saved to secret_history (capped at 5 entries).
 func UpdateRecord(db *DB, key [32]byte, id string, input models.RecordInput) error {
-	// Fetch current record to check if password changed.
+	// Fetch current record to check if the secret field changed.
 	current, err := GetRecord(db, key, id)
 	if err != nil {
 		return err
 	}
 
-	if current.Password != input.Password {
-		if err := savePasswordHistory(db, key, id, current.Password); err != nil {
+	// Determine old and new secret values based on record type.
+	oldSecret, newSecret := current.Password, input.Password
+	if current.Type == "api_key" {
+		oldSecret, newSecret = current.SecretKey, input.SecretKey
+	}
+	if oldSecret != newSecret {
+		if err := saveSecretHistory(db, key, id, oldSecret); err != nil {
 			return fmt.Errorf("save history: %w", err)
 		}
 	}
 
 	plain := models.RecordPlaintext{
-		Name:     input.Name,
-		Username: input.Username,
-		Password: input.Password,
-		URL:      input.URL,
-		Notes:    input.Notes,
-		Tags:     input.Tags,
+		Type:      current.Type,
+		Name:      input.Name,
+		Username:  input.Username,
+		Password:  input.Password,
+		SecretKey: input.SecretKey,
+		URL:       input.URL,
+		Notes:     input.Notes,
+		Tags:      input.Tags,
 	}
 
 	plainJSON, err := json.Marshal(plain)
@@ -180,7 +202,7 @@ func UpdateRecord(db *DB, key [32]byte, id string, input models.RecordInput) err
 		return fmt.Errorf("encrypt: %w", err)
 	}
 
-	hint := strings.ToLower(input.Name + "\t" + input.Username)
+	hint := buildSearchHint(current.Type, input.Name, input.Username)
 	now := time.Now().Unix()
 
 	_, err = db.conn.Exec(
@@ -191,10 +213,10 @@ func UpdateRecord(db *DB, key [32]byte, id string, input models.RecordInput) err
 	return err
 }
 
-// savePasswordHistory encrypts the old password and inserts it into history,
+// saveSecretHistory encrypts the old secret value and inserts it into secret_history,
 // pruning to the last 5 entries.
-func savePasswordHistory(db *DB, key [32]byte, recordID, oldPassword string) error {
-	ciphertext, nonce, err := Encrypt(key, []byte(oldPassword))
+func saveSecretHistory(db *DB, key [32]byte, recordID, oldSecret string) error {
+	ciphertext, nonce, err := Encrypt(key, []byte(oldSecret))
 	if err != nil {
 		return err
 	}
@@ -203,7 +225,7 @@ func savePasswordHistory(db *DB, key [32]byte, recordID, oldPassword string) err
 	now := time.Now().Unix()
 
 	_, err = db.conn.Exec(
-		`INSERT INTO password_history (id, record_id, ciphertext, nonce, replaced_at)
+		`INSERT INTO secret_history (id, record_id, ciphertext, nonce, replaced_at)
 		 VALUES (?, ?, ?, ?, ?)`,
 		histID, recordID, ciphertext, nonce, now,
 	)
@@ -213,9 +235,9 @@ func savePasswordHistory(db *DB, key [32]byte, recordID, oldPassword string) err
 
 	// Prune to last 5.
 	_, err = db.conn.Exec(
-		`DELETE FROM password_history
+		`DELETE FROM secret_history
 		 WHERE record_id = ? AND id NOT IN (
-		   SELECT id FROM password_history
+		   SELECT id FROM secret_history
 		   WHERE record_id = ?
 		   ORDER BY replaced_at DESC
 		   LIMIT 5
@@ -285,10 +307,10 @@ func PurgeRecord(db *DB, id string) error {
 	return nil
 }
 
-// GetHistory returns the last 5 decrypted password history entries for a record.
-func GetHistory(db *DB, key [32]byte, recordID string) ([]models.PasswordHistory, error) {
+// GetHistory returns the last 5 decrypted secret field history entries for a record.
+func GetHistory(db *DB, key [32]byte, recordID string) ([]models.SecretHistory, error) {
 	rows, err := db.conn.Query(
-		`SELECT id, ciphertext, nonce, replaced_at FROM password_history
+		`SELECT id, ciphertext, nonce, replaced_at FROM secret_history
 		 WHERE record_id=? ORDER BY replaced_at DESC LIMIT 5`,
 		recordID,
 	)
@@ -297,9 +319,9 @@ func GetHistory(db *DB, key [32]byte, recordID string) ([]models.PasswordHistory
 	}
 	defer rows.Close()
 
-	var history []models.PasswordHistory
+	var history []models.SecretHistory
 	for rows.Next() {
-		var h models.PasswordHistory
+		var h models.SecretHistory
 		var ciphertext, nonce []byte
 		if err := rows.Scan(&h.ID, &ciphertext, &nonce, &h.ReplacedAt); err != nil {
 			return nil, err
@@ -309,7 +331,7 @@ func GetHistory(db *DB, key [32]byte, recordID string) ([]models.PasswordHistory
 			return nil, fmt.Errorf("decrypt history: %w", err)
 		}
 		h.RecordID = recordID
-		h.Password = string(plain)
+		h.Secret = string(plain)
 		history = append(history, h)
 	}
 	return history, rows.Err()

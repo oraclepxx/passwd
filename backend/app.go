@@ -5,8 +5,8 @@ import (
 	"crypto/rand"
 	"time"
 
-	"passwd/backend/models"
-	"passwd/backend/vault"
+	"github.com/oraclepxx/passwd/backend/models"
+	"github.com/oraclepxx/passwd/backend/vault"
 )
 
 // App is the main application struct. All exported methods are bound to the
@@ -217,8 +217,8 @@ func (a *App) RecordPurge(id string) error {
 	return vault.PurgeRecord(a.db, id)
 }
 
-// RecordHistory returns the last 5 decrypted password history entries.
-func (a *App) RecordHistory(id string) ([]models.PasswordHistory, error) {
+// RecordHistory returns the last 5 decrypted secret field history entries.
+func (a *App) RecordHistory(id string) ([]models.SecretHistory, error) {
 	key, err := a.session.Key()
 	if err != nil {
 		return nil, err

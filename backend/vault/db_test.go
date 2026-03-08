@@ -25,7 +25,7 @@ func TestOpen_CreatesTablesAndIndexes(t *testing.T) {
 		t.Fatalf("migrate: %v", err)
 	}
 
-	tables := []string{"vault_meta", "records", "password_history"}
+	tables := []string{"vault_meta", "records", "secret_history"}
 	for _, table := range tables {
 		var name string
 		err := conn.QueryRow(

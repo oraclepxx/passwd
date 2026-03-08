@@ -91,6 +91,7 @@ func (db *DB) migrate() error {
 
 		CREATE TABLE IF NOT EXISTS records (
 			id          TEXT    PRIMARY KEY,
+			record_type TEXT    NOT NULL DEFAULT 'password',
 			ciphertext  BLOB    NOT NULL,
 			nonce       BLOB    NOT NULL,
 			created_at  INTEGER NOT NULL,
@@ -99,7 +100,7 @@ func (db *DB) migrate() error {
 			search_hint TEXT    NOT NULL
 		);
 
-		CREATE TABLE IF NOT EXISTS password_history (
+		CREATE TABLE IF NOT EXISTS secret_history (
 			id          TEXT    PRIMARY KEY,
 			record_id   TEXT    NOT NULL REFERENCES records(id),
 			ciphertext  BLOB    NOT NULL,
@@ -109,7 +110,12 @@ func (db *DB) migrate() error {
 
 		CREATE INDEX IF NOT EXISTS idx_records_deleted_at ON records(deleted_at);
 		CREATE INDEX IF NOT EXISTS idx_records_search     ON records(search_hint);
-		CREATE INDEX IF NOT EXISTS idx_history_record     ON password_history(record_id);
+		CREATE INDEX IF NOT EXISTS idx_history_record     ON secret_history(record_id);
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+	// Additive migrations for existing databases.
+	_, _ = db.conn.Exec(`ALTER TABLE records ADD COLUMN record_type TEXT NOT NULL DEFAULT 'password'`)
+	return nil
 }

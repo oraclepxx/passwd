@@ -8,7 +8,7 @@ import (
 	"time"
 
 	_ "modernc.org/sqlite"
-	"passwd/backend/models"
+	"github.com/oraclepxx/passwd/backend/models"
 )
 
 func newTestDB(t *testing.T) *DB {
@@ -35,12 +35,13 @@ func testKey(t *testing.T) [32]byte {
 	return key
 }
 
-// 4-12: CreateRecord + GetRecord round-trip.
+// 4-12: CreateRecord + GetRecord round-trip for password type.
 func TestCreateGetRecord_RoundTrip(t *testing.T) {
 	db := newTestDB(t)
 	key := testKey(t)
 
 	input := models.RecordInput{
+		Type:     "password",
 		Name:     "GitHub",
 		Username: "user@example.com",
 		Password: "s3cr3t!",
@@ -59,6 +60,9 @@ func TestCreateGetRecord_RoundTrip(t *testing.T) {
 		t.Fatalf("GetRecord: %v", err)
 	}
 
+	if got.Type != "password" {
+		t.Errorf("type: got %q, want %q", got.Type, "password")
+	}
 	if got.Username != input.Username {
 		t.Errorf("username: got %q, want %q", got.Username, input.Username)
 	}
@@ -77,14 +81,53 @@ func TestCreateGetRecord_RoundTrip(t *testing.T) {
 	}
 }
 
-// 4-13: ListRecords with query filter.
+// 4-12 (api_key): CreateRecord + GetRecord round-trip for api_key type.
+func TestCreateGetRecord_APIKey_RoundTrip(t *testing.T) {
+	db := newTestDB(t)
+	key := testKey(t)
+
+	input := models.RecordInput{
+		Type:      "api_key",
+		Name:      "OpenAI Key",
+		SecretKey: "sk-abc123",
+		Notes:     "production key",
+	}
+
+	id, err := CreateRecord(db, key, input)
+	if err != nil {
+		t.Fatalf("CreateRecord: %v", err)
+	}
+
+	got, err := GetRecord(db, key, id)
+	if err != nil {
+		t.Fatalf("GetRecord: %v", err)
+	}
+
+	if got.Type != "api_key" {
+		t.Errorf("type: got %q, want %q", got.Type, "api_key")
+	}
+	if got.SecretKey != input.SecretKey {
+		t.Errorf("secret_key: got %q, want %q", got.SecretKey, input.SecretKey)
+	}
+	if got.Notes != input.Notes {
+		t.Errorf("notes: got %q, want %q", got.Notes, input.Notes)
+	}
+	if got.UsernameMasked != "" {
+		t.Errorf("expected empty username_masked for api_key, got %q", got.UsernameMasked)
+	}
+	if got.Username != "" {
+		t.Errorf("expected empty username for api_key, got %q", got.Username)
+	}
+}
+
+// 4-13: ListRecords with query filter — both types match by name; only password matches by username.
 func TestListRecords_QueryFilter(t *testing.T) {
 	db := newTestDB(t)
 	key := testKey(t)
 
-	CreateRecord(db, key, models.RecordInput{Name: "GitHub", Username: "alice@gh.com", Password: "p1"})
-	CreateRecord(db, key, models.RecordInput{Name: "Gmail", Username: "alice@gmail.com", Password: "p2"})
-	CreateRecord(db, key, models.RecordInput{Name: "Slack", Username: "bob@slack.com", Password: "p3"})
+	CreateRecord(db, key, models.RecordInput{Type: "password", Name: "GitHub", Username: "alice@gh.com", Password: "p1"})
+	CreateRecord(db, key, models.RecordInput{Type: "password", Name: "Gmail", Username: "alice@gmail.com", Password: "p2"})
+	CreateRecord(db, key, models.RecordInput{Type: "api_key", Name: "Slack API", SecretKey: "xoxb-slack"})
 
 	all, err := ListRecords(db, "")
 	if err != nil {
@@ -101,10 +144,23 @@ func TestListRecords_QueryFilter(t *testing.T) {
 	if len(filtered) != 1 {
 		t.Fatalf("expected 1 record for 'github', got %d", len(filtered))
 	}
-	if filtered[0].Name != "github" { // search_hint is lowercased
-		t.Errorf("expected name 'github', got %q", filtered[0].Name)
+
+	// api_key type matched by name
+	apiFiltered, err := ListRecords(db, "slack")
+	if err != nil {
+		t.Fatalf("ListRecords api filter: %v", err)
+	}
+	if len(apiFiltered) != 1 {
+		t.Fatalf("expected 1 record for 'slack', got %d", len(apiFiltered))
+	}
+	if apiFiltered[0].Type != "api_key" {
+		t.Errorf("expected api_key type, got %q", apiFiltered[0].Type)
+	}
+	if apiFiltered[0].UsernameMasked != "" {
+		t.Errorf("expected empty username_masked for api_key, got %q", apiFiltered[0].UsernameMasked)
 	}
 
+	// Username search only matches password type
 	byUsername, err := ListRecords(db, "alice")
 	if err != nil {
 		t.Fatalf("ListRecords by username: %v", err)
@@ -114,17 +170,17 @@ func TestListRecords_QueryFilter(t *testing.T) {
 	}
 }
 
-// 4-14: UpdateRecord saves password history; GetHistory recovers old password.
+// 4-14: UpdateRecord saves secret history; GetHistory recovers old secret value.
 func TestUpdateRecord_PasswordHistory(t *testing.T) {
 	db := newTestDB(t)
 	key := testKey(t)
 
 	id, _ := CreateRecord(db, key, models.RecordInput{
-		Name: "Site", Username: "user", Password: "old-pass",
+		Type: "password", Name: "Site", Username: "user", Password: "old-pass",
 	})
 
 	err := UpdateRecord(db, key, id, models.RecordInput{
-		Name: "Site", Username: "user", Password: "new-pass",
+		Type: "password", Name: "Site", Username: "user", Password: "new-pass",
 	})
 	if err != nil {
 		t.Fatalf("UpdateRecord: %v", err)
@@ -144,8 +200,36 @@ func TestUpdateRecord_PasswordHistory(t *testing.T) {
 	if len(history) != 1 {
 		t.Fatalf("expected 1 history entry, got %d", len(history))
 	}
-	if history[0].Password != "old-pass" {
-		t.Errorf("history password: got %q, want %q", history[0].Password, "old-pass")
+	if history[0].Secret != "old-pass" {
+		t.Errorf("history secret: got %q, want %q", history[0].Secret, "old-pass")
+	}
+}
+
+// 4-14 (api_key): UpdateRecord saves secret history for api_key type.
+func TestUpdateRecord_APIKey_SecretHistory(t *testing.T) {
+	db := newTestDB(t)
+	key := testKey(t)
+
+	id, _ := CreateRecord(db, key, models.RecordInput{
+		Type: "api_key", Name: "OpenAI", SecretKey: "old-key",
+	})
+
+	err := UpdateRecord(db, key, id, models.RecordInput{
+		Type: "api_key", Name: "OpenAI", SecretKey: "new-key",
+	})
+	if err != nil {
+		t.Fatalf("UpdateRecord: %v", err)
+	}
+
+	history, err := GetHistory(db, key, id)
+	if err != nil {
+		t.Fatalf("GetHistory: %v", err)
+	}
+	if len(history) != 1 {
+		t.Fatalf("expected 1 history entry, got %d", len(history))
+	}
+	if history[0].Secret != "old-key" {
+		t.Errorf("history secret: got %q, want %q", history[0].Secret, "old-key")
 	}
 }
 
@@ -154,10 +238,10 @@ func TestUpdateRecord_HistoryCappedAt5(t *testing.T) {
 	db := newTestDB(t)
 	key := testKey(t)
 
-	id, _ := CreateRecord(db, key, models.RecordInput{Name: "S", Username: "u", Password: "p0"})
+	id, _ := CreateRecord(db, key, models.RecordInput{Type: "password", Name: "S", Username: "u", Password: "p0"})
 	for i := 1; i <= 7; i++ {
 		UpdateRecord(db, key, id, models.RecordInput{
-			Name: "S", Username: "u", Password: strings.Repeat("x", i),
+			Type: "password", Name: "S", Username: "u", Password: strings.Repeat("x", i),
 		})
 	}
 
@@ -236,7 +320,7 @@ func TestPurgeExpiredTrash(t *testing.T) {
 	db := newTestDB(t)
 	key := testKey(t)
 
-	id, _ := CreateRecord(db, key, models.RecordInput{Name: "Old", Username: "u", Password: "p"})
+	id, _ := CreateRecord(db, key, models.RecordInput{Type: "password", Name: "Old", Username: "u", Password: "p"})
 
 	// Manually set deleted_at to 31 days ago.
 	cutoff := time.Now().Unix() - 31*24*60*60
@@ -261,7 +345,7 @@ func TestSoftDeleteRestorePurge(t *testing.T) {
 	db := newTestDB(t)
 	key := testKey(t)
 
-	id, _ := CreateRecord(db, key, models.RecordInput{Name: "X", Username: "u", Password: "p"})
+	id, _ := CreateRecord(db, key, models.RecordInput{Type: "password", Name: "X", Username: "u", Password: "p"})
 
 	// Soft delete — should not appear in active list.
 	if err := DeleteRecord(db, id); err != nil {
@@ -287,7 +371,7 @@ func TestSoftDeleteRestorePurge(t *testing.T) {
 		t.Fatalf("PurgeRecord: %v", err)
 	}
 	// Purging active record should fail.
-	id2, _ := CreateRecord(db, key, models.RecordInput{Name: "Y", Username: "u", Password: "p"})
+	id2, _ := CreateRecord(db, key, models.RecordInput{Type: "password", Name: "Y", Username: "u", Password: "p"})
 	if err := PurgeRecord(db, id2); err == nil {
 		t.Error("expected error purging active record")
 	}

@@ -3,7 +3,7 @@ package vault
 import (
 	"sync"
 
-	"passwd/backend/models"
+	"github.com/oraclepxx/passwd/backend/models"
 )
 
 // VaultSession holds the in-memory vault key and lock state.

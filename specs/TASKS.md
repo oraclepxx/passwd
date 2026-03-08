@@ -25,14 +25,14 @@ Check off each task as it is completed. Do not skip ahead — complete and verif
 ## Phase 2 — Data Layer (Go)
 
 - [x] 2-1. Implement `backend/vault/db.go`: open/create SQLite DB at `os.UserConfigDir()` path
-- [x] 2-2. Run schema on first open with `CREATE TABLE IF NOT EXISTS` for `vault_meta`, `records`, `password_history`
+- [x] 2-2. Run schema on first open with `CREATE TABLE IF NOT EXISTS` for `vault_meta`, `records` (with `record_type TEXT NOT NULL DEFAULT 'password'` column), `secret_history`
 - [x] 2-3. Create all three indexes: `idx_records_deleted_at`, `idx_records_search`, `idx_history_record`
 - [x] 2-4. Export `DB` struct with `*sql.DB` field and `Close() error` method
-- [x] 2-5. Implement `backend/models/record.go` with exact structs from `TECH_DESIGN_v2.md` §4.3: `RecordPlaintext`, `RecordSummary`, `RecordDetail`, `RecordInput`, `GeneratorOptions`, `PasswordHistory`
+- [x] 2-5. Implement `backend/models/record.go` with exact structs from `TECH_DESIGN_v2.md` §4.3: `RecordPlaintext` (with `Type`, `SecretKey` fields), `RecordSummary` (with `Type`), `RecordDetail` (with `SecretKey`), `RecordInput` (with `Type`, `SecretKey`), `GeneratorOptions`, `SecretHistory`
 - [x] 2-6. Implement `backend/models/errors.go` with sentinel errors: `ErrVaultLocked`, `ErrVaultAlreadyExists`, `ErrVaultNotFound`, `ErrRecordNotFound`, `ErrWrongPassword`
 
 **Verify:**
-- [x] 2-7. Go test: call `db.Open()`, query `sqlite_master`, assert all 3 tables exist
+- [x] 2-7. Go test: call `db.Open()`, query `sqlite_master`, assert all 3 tables exist (`vault_meta`, `records`, `secret_history`)
 - [x] 2-8. `go test ./backend/vault/...` passes
 
 ---
@@ -56,14 +56,14 @@ Check off each task as it is completed. Do not skip ahead — complete and verif
 
 ## Phase 4 — Vault & Record Business Logic (Go)
 
-- [x] 4-1. Implement `CreateRecord(db, key, input)` — UUID v4 id, build `search_hint`, encrypt, insert
-- [x] 4-2. Implement `ListRecords(db, key, query)` — filter by `search_hint LIKE ?`, `WHERE deleted_at IS NULL`, apply `maskUsername`
+- [x] 4-1. Implement `CreateRecord(db, key, input)` — UUID v4 id, build `search_hint` per type (`name\tusername` for `password`; `name` only for `api_key`), store `record_type`, encrypt, insert
+- [x] 4-2. Implement `ListRecords(db, key, query)` — filter by `search_hint LIKE ?`, `WHERE deleted_at IS NULL`, apply `maskUsername` for `password` type only (empty for `api_key`)
 - [x] 4-3. Implement `GetRecord(db, key, id)` — decrypt on demand
-- [x] 4-4. Implement `UpdateRecord(db, key, id, input)` — save password history if password changed, re-encrypt with fresh nonce
+- [x] 4-4. Implement `UpdateRecord(db, key, id, input)` — save secret history if secret field changed (password for `password` type; secret key for `api_key` type), re-encrypt with fresh nonce
 - [x] 4-5. Implement `DeleteRecord(db, id)` — sets `deleted_at = now()`
 - [x] 4-6. Implement `RestoreRecord(db, id)` — sets `deleted_at = NULL`
 - [x] 4-7. Implement `PurgeRecord(db, id)` — hard DELETE, guard requires `deleted_at IS NOT NULL`
-- [x] 4-8. Implement `GetHistory(db, key, id)` — last 5 entries, decrypt passwords
+- [x] 4-8. Implement `GetHistory(db, key, id)` — last 5 entries from `secret_history`, decrypt secret values
 - [x] 4-9. Implement `PurgeExpiredTrash(db)` — DELETE where `deleted_at < now() - 30 days`
 - [x] 4-10. Implement `maskUsername(username string) string` exactly as specified in `TECH_DESIGN_v2.md` §5
 - [x] 4-11. Implement `Generate(opts GeneratorOptions) (string, error)` in `generator.go`:
@@ -74,9 +74,9 @@ Check off each task as it is completed. Do not skip ahead — complete and verif
   - [x] 4-11-5. Return error if `opts.Length < 8`
 
 **Verify:**
-- [x] 4-12. Unit test: `CreateRecord` + `GetRecord` round-trip — decrypted values match input
-- [x] 4-13. Unit test: `ListRecords` with query — only matching records returned
-- [x] 4-14. Unit test: `UpdateRecord` with password change — history row inserted, old value recoverable via `GetHistory`
+- [x] 4-12. Unit test: `CreateRecord` + `GetRecord` round-trip — for both `password` and `api_key` types; decrypted values match input
+- [x] 4-13. Unit test: `ListRecords` with query — matching by name for both types; matching by username for `password` type only
+- [x] 4-14. Unit test: `UpdateRecord` with secret field change — `secret_history` row inserted, old value recoverable via `GetHistory`
 - [x] 4-15. Unit test: `maskUsername` — verify all four cases from `TECH_DESIGN_v2.md` §5
 - [x] 4-16. Unit test: `Generate` — assert correct length, each enabled char class present
 - [x] 4-17. `go test ./backend/vault/...` passes
@@ -99,7 +99,7 @@ Check off each task as it is completed. Do not skip ahead — complete and verif
 - [x] 5-12. Implement `RecordDelete(id string) error` — guard with `IsUnlocked()`
 - [x] 5-13. Implement `RecordRestore(id string) error` — guard with `IsUnlocked()`
 - [x] 5-14. Implement `RecordPurge(id string) error` — guard with `IsUnlocked()`
-- [x] 5-15. Implement `RecordHistory(id string) ([]PasswordHistory, error)` — guard with `IsUnlocked()`
+- [x] 5-15. Implement `RecordHistory(id string) ([]SecretHistory, error)` — guard with `IsUnlocked()`
 - [x] 5-16. Implement `PasswordGenerate(opts GeneratorOptions) (string, error)`
 - [x] 5-17. Implement `ClipboardCopy(value string, timeoutSecs int) error` — write to OS clipboard, goroutine clears after timeout
 - [x] 5-18. Register `App` in `backend/main.go` with `wails.Run`
@@ -132,16 +132,16 @@ Check off each task as it is completed. Do not skip ahead — complete and verif
 ## Phase 7 — Frontend: Record List & Search
 
 - [x] 7-1. Implement `useRecords.ts` hook with `list(query)`, `get(id)`, `create(input)`, `update(id, input)`, `remove(id)`, `restore(id)`, `purge(id)`
-- [x] 7-2. Implement `RecordCard.tsx` — display `name` and `username_masked`, no password shown
+- [x] 7-2. Implement `RecordCard.tsx` — display `name`, record `type` badge, and `username_masked` (for `password` type); no secret field shown
 - [x] 7-3. Implement `ListView.tsx` — search bar at top, debounced (150ms) call to `RecordList` on every keystroke
 - [x] 7-4. Render list of `RecordCard` components in `ListView`
 - [x] 7-5. "New record" button in `ListView` — navigate to `FormView` in create mode
 - [x] 7-6. Clicking a `RecordCard` — navigate to `DetailView`
 
 **Verify:**
-- [x] 7-7. Create 3 records; all appear in the list
-- [x] 7-8. Search by name — only matching records shown
-- [x] 7-9. Search by username — only matching records shown
+- [x] 7-7. Create 3 records (at least one of each type); all appear in the list with correct type badge
+- [x] 7-8. Search by name — only matching records shown (both types)
+- [x] 7-9. Search by username — only matching `password` type records shown (api_key records not matched by username)
 - [x] 7-10. Clear search — all records shown
 
 ---
@@ -150,19 +150,20 @@ Check off each task as it is completed. Do not skip ahead — complete and verif
 
 - [x] 8-1. Implement `ConfirmDialog.tsx` — reusable modal with confirm/cancel
 - [x] 8-2. Implement `useClipboard.ts` — wraps `ClipboardCopy`, shows "Copied!" toast for 2 seconds
-- [x] 8-3. Implement `DetailView.tsx` — call `RecordGet(id)` on mount
-- [x] 8-4. Display `username_masked`; add "show" toggle to reveal full username
-- [x] 8-5. Display password as `••••••••` by default; "reveal" button toggles visibility (use `font-mono` for password)
-- [x] 8-6. "Copy username" button — calls `ClipboardCopy(username, 30)`
-- [x] 8-7. "Copy password" button — calls `ClipboardCopy(password, 30)`
-- [x] 8-8. Display URL, notes, tags if present
-- [x] 8-9. "Edit" button — navigate to `FormView` in edit mode
-- [x] 8-10. "Delete" button — show `ConfirmDialog` → call `RecordDelete(id)` → back to `ListView`
+- [x] 8-3. Implement `DetailView.tsx` — call `RecordGet(id)` on mount; branch rendering on `type`
+- [x] 8-4. **Password type:** display `username_masked`; add "show" toggle to reveal full username
+- [x] 8-5. **Password type:** display password as `••••••••` by default; "reveal" button toggles visibility (use `font-mono`); "Copy password" button — calls `ClipboardCopy(password, 30)`
+- [x] 8-5a. **API key type:** display secret key as `••••••••` by default; "reveal" button toggles visibility (use `font-mono`); "Copy key" button — calls `ClipboardCopy(secret_key, 30)`
+- [x] 8-6. "Copy username" button (password type only) — calls `ClipboardCopy(username, 30)`
+- [x] 8-7. Display URL (password type only), notes, tags if present
+- [x] 8-8. "Edit" button — navigate to `FormView` in edit mode
+- [x] 8-9. "Delete" button — show `ConfirmDialog` → call `RecordDelete(id)` → back to `ListView`
 
 **Verify:**
-- [x] 8-11. Open a record — password shows as dots
-- [x] 8-12. Click reveal — plaintext appears
-- [x] 8-13. Click "Copy password" — clipboard contains the password
+- [x] 8-10. Open a `password` record — password shows as dots; username masked
+- [x] 8-11. Open an `api_key` record — secret key shows as dots; no username field shown
+- [x] 8-12. Click reveal on either type — plaintext appears
+- [x] 8-13. Click copy on either type — clipboard contains the secret value
 - [x] 8-14. Wait 30 seconds — clipboard is cleared
 - [x] 8-15. Click delete → confirm dialog appears → confirm → record gone from list
 
@@ -172,17 +173,20 @@ Check off each task as it is completed. Do not skip ahead — complete and verif
 
 - [x] 9-1. Implement `PasswordField.tsx` — show/hide toggle, "Generate" button calls `PasswordGenerate` and fills field
 - [x] 9-2. Add generator options UI to `PasswordField`: length slider (min 8, default 20), symbol/number/uppercase toggles
-- [x] 9-3. Implement `FormView.tsx` in create mode — fields: Name (required), Username (required), Password (required), URL, Notes, Tags
-- [x] 9-4. Implement `FormView.tsx` in edit mode — pre-fill all fields from `RecordDetail`
+- [x] 9-3. Implement `FormView.tsx` in create mode — type selector (`password` / `api_key`) at top; fields adapt to type:
+  - `password`: Name (required), Username (required), Password (required, with generator), URL, Notes, Tags
+  - `api_key`: Name (required), Key/Token (required), Notes, Tags
+- [x] 9-4. Implement `FormView.tsx` in edit mode — pre-fill all fields from `RecordDetail`; type is fixed (cannot be changed after creation)
 - [x] 9-5. Validate required fields before submit; show inline errors, make no API call if invalid
 - [x] 9-6. Save in create mode — call `RecordCreate` → navigate to `DetailView`
 - [x] 9-7. Save in edit mode — call `RecordUpdate` → navigate to `DetailView`
 - [x] 9-8. Cancel — navigate back without saving
 
 **Verify:**
-- [x] 9-9. Create a record via the form — it appears in the list
-- [x] 9-10. Edit the record's password — old password appears in history
-- [x] 9-11. Leave required field empty — validation error shown, no API call made
+- [x] 9-9. Create a `password` record via the form — it appears in the list with correct type badge
+- [x] 9-9a. Create an `api_key` record via the form — it appears in the list with correct type badge
+- [x] 9-10. Edit the secret field of either type — old value appears in history
+- [x] 9-11. Leave required field empty (per type) — validation error shown, no API call made
 - [x] 9-12. Click cancel — no record created or modified
 
 ---
@@ -191,25 +195,25 @@ Check off each task as it is completed. Do not skip ahead — complete and verif
 
 - [x] 10-1. Test vault key zeroing: lock vault, assert `session.key == [32]byte{}`
 - [x] 10-2. Code review `crypto.go`: confirm `crypto/rand.Read` used for every nonce, no nonce reused
-- [x] 10-3. Code review `records.go` `CreateRecord` and `UpdateRecord`: confirm `search_hint` never includes password, URL, or notes
+- [x] 10-3. Code review `records.go` `CreateRecord` and `UpdateRecord`: confirm `search_hint` never includes secret values, URL, or notes; confirm `password` type uses `name\tusername` and `api_key` type uses `name` only
 - [x] 10-4. Code review all `App` methods: confirm every record method returns `ErrVaultLocked` if session is locked
 - [x] 10-5. Check `wails.json` CSP field: confirm it denies all external origins
-- [ ] 10-6. Manual test clipboard auto-clear: copy a password, wait 30 seconds, assert clipboard is empty
+- [x] 10-6. Manual test clipboard auto-clear: copy a password, wait 30 seconds, assert clipboard is empty
 - [x] 10-7. Test trash auto-purge: insert record with `deleted_at = now() - 31 days`, call `PurgeExpiredTrash`, assert record is gone
 - [x] 10-8. Run `grep -r "math/rand" backend/` — assert no results
-- [ ] 10-9. Run app with network monitoring (`lsof -i`): assert no external connections on startup or normal use
+- [x] 10-9. Run app with network monitoring (`lsof -i`): assert no external connections on startup or normal use
 
 **Verify:**
-- [ ] 10-10. All checklist items 10-1 through 10-9 pass
-- [ ] 10-11. `go test ./...` passes with no failures
-- [ ] 10-12. `wails build` produces a release binary
-- [ ] 10-13. Smoke test release binary end-to-end:
-  - [ ] 10-13-1. Create vault
-  - [ ] 10-13-2. Add a record
-  - [ ] 10-13-3. Search for the record
-  - [ ] 10-13-4. Reveal password
-  - [ ] 10-13-5. Copy password
-  - [ ] 10-13-6. Edit the record
-  - [ ] 10-13-7. Delete the record
-  - [ ] 10-13-8. Restore from trash
-  - [ ] 10-13-9. Permanently purge
+- [x] 10-10. All checklist items 10-1 through 10-9 pass
+- [x] 10-11. `go test ./...` passes with no failures
+- [x] 10-12. `wails build` produces a release binary
+- [x] 10-13. Smoke test release binary end-to-end:
+  - [x] 10-13-1. Create vault
+  - [x] 10-13-2. Add a record
+  - [x] 10-13-3. Search for the record
+  - [x] 10-13-4. Reveal password
+  - [x] 10-13-5. Copy password
+  - [x] 10-13-6. Edit the record
+  - [x] 10-13-7. Delete the record
+  - [x] 10-13-8. Restore from trash
+  - [x] 10-13-9. Permanently purge
