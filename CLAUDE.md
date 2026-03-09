@@ -13,6 +13,14 @@ Reference `TECH_DESIGN_v2.md` for all architectural decisions. Do not deviate fr
 - Never modify `AGENTS.md`, `PRD.md`, `TECH_DESIGN_v2.md`, or `RESEARCH.md` during implementation. These are source-of-truth documents.
 - After completing each phase, run the verification steps defined at the end of that phase before proceeding.
 
+### Testing
+- Every code change must trigger a full test run before the change is considered complete.
+- Before running tests, reset all items in `specs/TEST_TASKS.md` from `[x]` to `[ ]` and update the Coverage Summary statuses to `⬜ Pending`.
+- Run the backend test suite (`GO111MODULE=on go test ./backend/... -v`) and the frontend test suite (`cd frontend && npm test`) in full.
+- After both suites finish, mark each item in `specs/TEST_TASKS.md` as `[x]` (pass) or `[~]` (fail/skip) based on actual results, and update the Coverage Summary.
+- Write a `specs/TEST_REPORTS.md` file after every test run. It must include: the date/time, the commit or change description, per-suite pass/fail counts, and a section listing every failed or skipped test with its failure message.
+- If any test fails, do not mark the change as complete. Fix the failure and re-run the full suite before proceeding.
+
 ### Task Execution
 - Implement phase by phase, in the order defined in `TASKS.md`. Never start a new phase before the current one is fully complete and verified.
 - Before starting any new phase, read `TASKS.md` and check that every task (`[ ]`) in all previous phases is marked done (`[x]`). If any prior task is not done, stop and complete it before proceeding.

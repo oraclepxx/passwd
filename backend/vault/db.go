@@ -70,6 +70,15 @@ func SaveVaultMeta(db *DB, salt, verifier, verifierNonce []byte) error {
 	return err
 }
 
+// UpdateVaultMeta replaces the salt and verifier in vault_meta (used when changing the master password).
+func UpdateVaultMeta(db *DB, salt, verifier, verifierNonce []byte) error {
+	_, err := db.conn.Exec(
+		`UPDATE vault_meta SET salt=?, verifier=?, verifier_nonce=? WHERE id=1`,
+		salt, verifier, verifierNonce,
+	)
+	return err
+}
+
 // LoadVaultMeta reads the salt, verifier, and verifier_nonce from vault_meta.
 func LoadVaultMeta(db *DB) (salt, verifier, verifierNonce []byte, err error) {
 	err = db.conn.QueryRow(

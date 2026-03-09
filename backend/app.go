@@ -184,7 +184,7 @@ func (a *App) VaultChangeMasterPassword(currentPassword, newPassword string) err
 		clear(newKey[:])
 		return err
 	}
-	if err := vault.SaveVaultMeta(a.db, newSalt, newVerifier, newVerifierNonce); err != nil {
+	if err := vault.UpdateVaultMeta(a.db, newSalt, newVerifier, newVerifierNonce); err != nil {
 		clear(newKey[:])
 		return err
 	}
